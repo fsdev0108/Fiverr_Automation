@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Fiverr Human Monitor",
+  "version": "2.0.0",
+  "description": "Auto-scrapes Fiverr pages and sends IDs to a backend without stopping.",
+  "permissions": [
+    "tabs",
+    "scripting",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*.fiverr.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Fiverr Human Monitor"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/tf.min.js",
+        "lib/blazeface.min.js"
+      ],
+      "matches": ["https://*.fiverr.com/*"]
+    }
+  ]
+}
