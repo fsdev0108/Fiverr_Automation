@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Fiverr Human Monitor</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 12px;
+        width: 260px;
+      }
+      h3 {
+        margin-top: 0;
+        font-size: 17px;
+      }
+      label {
+        font-size: 12px;
+      }
+      input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 6px;
+        margin-bottom: 10px;
+        padding: 6px;
+      }
+      button {
+        width: 48%;
+        padding: 7px;
+        cursor: pointer;
+        margin-top: 8px;
+        font-size: 14px;
+      }
+      #status {
+        font-size: 12px;
+        margin-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Fiverr Human Monitor</h3>
+
+    <label for="backendBase">Backend URL</label>
+    <input
+      type="text"
+      id="backendBase"
+      placeholder="http://127.0.0.1:8000"
+    />
+
+    <div style="display: flex; justify-content: space-between">
+      <button id="startBtn">Start</button>
+      <button id="stopBtn">Stop</button>
+    </div>
+
+    <div id="status">Status: <strong>stopped</strong></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
