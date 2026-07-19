@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Send",
+  "version": "2.0.0",
+  "description": "Auto-scrapes Fiverr pages and sends IDs to a backend without stopping.",
+  "permissions": [
+    "tabs",
+    "scripting",
+    "storage",
+    "alarms",
+    "debugger",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*.fiverr.com/*",
+    "https://rabbit-fiverr.duckdns.org/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Auto Send"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/tf.min.js",
+        "lib/blazeface.min.js",
+        "files/*"
+      ],
+      "matches": ["https://*.fiverr.com/*"]
+    }
+  ]
+}
