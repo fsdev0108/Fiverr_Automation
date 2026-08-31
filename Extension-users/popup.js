@@ -3,7 +3,7 @@ const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const statusEl = document.getElementById("status");
 
-const DEFAULT_BACKEND_BASE = "http://127.0.0.1:8000";
+const DEFAULT_BACKEND_BASE = "https://rabbit-fiverr.duckdns.org";
 
 function setStatus(running) {
   statusEl.innerHTML =

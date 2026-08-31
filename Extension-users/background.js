@@ -138,8 +138,8 @@ const URLS = [
 ];
 
 const REGION_QUERY = {
-  "EU":
-    "%7Cseller_location%3AAT%2CBG%2CCZ%2CDK%2CEE%2CDE%2CIS%2CIE%2CLV%2CIL%2CFI%2CGR%2CNO%2CNL%2CNZ%2CSE%2CCH%2CUA%2CRO%2CPL%2CMD&filter=new&ref_ctx_id=d84d629d6caf4cc1ae7242d8a6cb7ae4&showprofessioncampaign=false",
+  // "EU":
+  //   "%7Cseller_location%3AAT%2CBG%2CCZ%2CDK%2CEE%2CDE%2CIS%2CIE%2CLV%2CIL%2CFI%2CGR%2CNO%2CNL%2CNZ%2CSE%2CCH%2CUA%2CRO%2CPL%2CMD&filter=new&ref_ctx_id=d84d629d6caf4cc1ae7242d8a6cb7ae4&showprofessioncampaign=false",
   "US":
   "%7Cseller_location%3AUS&filter=new&ref_ctx_id=d84d629d6caf4cc1ae7242d8a6cb7ae4&showprofessioncampaign=false",
   // "US":
@@ -148,7 +148,7 @@ const REGION_QUERY = {
   // "&offset=0&limit=120&ref=seller_level%3Ana%7Cseller_location%3AUS&ref_ctx_id=d84d629d6caf4cc1ae7242d8a6cb7ae4&showprofessioncampaign=false"
 };
 
-const DEFAULT_BACKEND_BASE = "http://127.0.0.1:8000";
+const DEFAULT_BACKEND_BASE = "https://rabbit-fiverr.duckdns.org";
 
 const ALARM_NAME = "fiverr_crawler_tick";
 const ALARM_PERIOD = 0.5; // every 30 seconds
@@ -336,7 +336,7 @@ async function crawlTick() {
   // Update state for next tick
   state.page += 1;
 
-  if (state.page > 21 || all.length < 100) {
+  if (state.page > 20 || all.length < 100) {
     state.page = 1;
     state.urlIndex += 1;
     if (state.urlIndex >= URLS.length) {
