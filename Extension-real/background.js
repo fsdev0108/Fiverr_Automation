@@ -1,7 +1,7 @@
 let busy = false;
 
 const ALARM = "fiverr_tick";
-const DEFAULT_BACKEND = "http://127.0.0.1:8000";
+const DEFAULT_BACKEND = "https://rabbit-fiverr.duckdns.org";
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // popup asks status
@@ -75,16 +75,10 @@ async function sendBatchToBackend(base, usersPayload, myTz, file_state) {
 }
 
 // ---- TAB SCRAPE ----
-function waitForTabComplete(tabId, timeoutMs = 30000) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => {
-      chrome.tabs.onUpdated.removeListener(listener);
-      reject(new Error("Tab load timeout"));
-    }, timeoutMs);
-
-    function listener(updatedTabId, info) {
-      if (updatedTabId === tabId && info.status === "complete") {
-        clearTimeout(t);
+function waitForTabComplete(tabId, timeoutMS = 15000) {
+  return new Promise((resolve) => {
+    function listener(id, info) {
+      if (id === tabId && info.status === "complete") {
         chrome.tabs.onUpdated.removeListener(listener);
         resolve();
       }
@@ -107,7 +101,7 @@ async function scrapeFromTab(tabId) {
           contactBtn = null;
 
       for (let i = 0; i < 40; i++) {
-        img = pick("img.efe4354");
+        img = pick("img._506e5f");
 
         const darks = pickAll(".flex.co-text-dark");
         timeEl =
@@ -157,7 +151,6 @@ async function openScrapeClose(userid) {
 
   try {
     await waitForTabComplete(tab.id);
-    await sleep(10000);
     const scraped = await scrapeFromTab(tab.id);
     return { userid, ...scraped, profile_url: url };
   } finally {

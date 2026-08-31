@@ -3,7 +3,7 @@
   "name": "Fiverr User Filter",
   "version": "1.0.0",
   "permissions": ["tabs", "scripting", "alarms", "storage"],
-  "host_permissions": ["https://www.fiverr.com/*", "http://127.0.0.1:8000/*"],
+  "host_permissions": ["https://www.fiverr.com/*", "https://rabbit-fiverr.duckdns.org/*"],
   "background": { "service_worker": "background.js" },
   "action": { "default_popup": "popup.html" }
 }

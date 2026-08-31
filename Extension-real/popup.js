@@ -1,7 +1,7 @@
 const statusStrong = document.querySelector("#status strong");
 const backendInput = document.getElementById("backendBase");
 
-const DEFAULT_BACKEND_BASE = "http://127.0.0.1:8000";
+const DEFAULT_BACKEND_BASE = "https://rabbit-fiverr.duckdns.org";
 
 function setStatus(running) {
   statusStrong.textContent = running ? "running" : "stopped";

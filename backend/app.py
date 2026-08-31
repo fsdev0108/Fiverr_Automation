@@ -1,4 +1,6 @@
 from __future__ import annotations
+from supabase import create_client
+from postgrest.exceptions import APIError
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from typing import Set, List
@@ -14,28 +16,37 @@ import requests
 import numpy as np
 import cv2
 import re
+from dotenv import load_dotenv
+
+load_dotenv()
 # from ultralytics import YOLOyes
 app = Flask(__name__)
 CORS(app)
 
-DATA_DIR = "data"
-DATA_DIR1 = Path("data")
-IMAGES_DIR = "images"
-IN_FILE = DATA_DIR1 / "new.txt"
-IN_FILE1 = DATA_DIR1 / "OUT_FILEtxt.txt"
-OUT_FILE = "filtered"
-OUT_FILE1 = "EU_filtered"
-OUT_FILE2 = DATA_DIR1 / "filtered.txt"
-FACE_CASCADE = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-TIME_RE = re.compile(r"(\d{1,2})\s*:\s*(\d{2})")
+BASE_DIR = Path(__file__).resolve().parent
 
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(IMAGES_DIR, exist_ok=True)
+IN_FILE = "new_users"
+IN_FILE1 = "us_fillted_users"
+IN_FILE2 = "eu_fillted_users"
+
+OUT_FILE = "filltered_users"
+OUT_FILE1 = "filltered_users_eu"
+
+FACE_CASCADE = cv2.CascadeClassifier(
+    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+)
+
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_KEY = os.environ["SUPABASE_KEY"]
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+TIME_RE = re.compile(r"(\d{1,2})\s*:\s*(\d{2})")
 
 
 NET = cv2.dnn.readNetFromCaffe(
-    "deploy.prototxt",
-    "res10_300x300_ssd_iter_140000.caffemodel"
+    str(BASE_DIR / "deploy.prototxt"),
+    str(BASE_DIR / "res10_300x300_ssd_iter_140000.caffemodel")
 )
 
 class UserIn(BaseModel):
@@ -47,13 +58,6 @@ class UserIn(BaseModel):
 class FilterReq(BaseModel):
     users: List[UserIn]
     my_tz: str = "America/Los_Angeles"
-
-def read_userids_from_file(path: Path) -> List[str]:
-    if not path.exists():
-        return []
-    lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
-    return [ln.strip() for ln in lines if ln.strip()]
-
 
 def safe_zoneinfo(tz_name: str) -> ZoneInfo:
     try:
@@ -72,10 +76,26 @@ def get_language_count(language_text: str) -> int:
         if lang.strip()
     ])
 
+def append_id(table: str, username: str):
+    try:
+        supabase.table(table).insert({
+            "username": username
+        }).execute()
+    except APIError as e:
+        # Ignore duplicate username
+        if "duplicate key" in str(e).lower():
+            return
+        raise
+    
+def delete_username(table, username):
 
-def write_userids_to_file(path: Path, userids: List[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(userids) + ("\n" if userids else ""), encoding="utf-8")
+    return (
+        supabase
+        .table(table)
+        .delete()
+        .eq("username", username)
+        .execute()
+    )
 
 def image_has_face(img_url: str, timeout=10, conf=0.5, upsample_to=800) -> bool:
     if not img_url:
@@ -154,48 +174,69 @@ def has_language(language_text: str, language: str) -> bool:
 
     return language.lower() in languages
 
-
 @app.route("/userids_from_file", methods=["GET"])
 def userids_from_file():
+
     TAKE_COUNT = 1
 
-    all_users = read_userids_from_file(IN_FILE)
+    # Get the first username from "new"
+    result = (
+        supabase
+        .table(IN_FILE)
+        .select("id, username")
+        .order("id")
+        .limit(TAKE_COUNT)
+        .execute()
+    )
+    users = result.data
+    # print(result)
+    print(result.data)
+    # print("IN_FILE =", IN_FILE)
 
-    # Take first 10
-    taken_users = all_users[:TAKE_COUNT]
-    remaining_users = all_users[TAKE_COUNT:]
-    print ("user total", len(all_users) )
-    if len(all_users) == 0:
-        all_user2 = read_userids_from_file(OUT_FILE2)
-        if len(all_user2) > 30:
+    print("user total:", len(users))
+
+    if len(users) == 0:
+
+        # Count filtered users
+        filtered = (
+            supabase
+            .table(OUT_FILE)
+            .select("id", count="exact")
+            .execute()
+        )
+
+        if filtered.count > 30:
             return jsonify({
-                "path": str(IN_FILE),
+                "path": "IN_FILE",
                 "taken": [],
                 "count": 0,
                 "remaining": 0
             })
+
+        # Get first username from out_filetxt
+        result = (
+            supabase
+            .table(IN_FILE1)
+            .select("id, username")
+            .order("id")
+            .limit(TAKE_COUNT)
+            .execute()
+        )
+
+        users = result.data
         
-        all_users1 = read_userids_from_file(IN_FILE1)
-        # Take first 10
-        taken_users1 = all_users1[:TAKE_COUNT]
-        remaining_users1 = all_users1[TAKE_COUNT:]
         return jsonify({
-            "path": str(IN_FILE1),
-            "taken": taken_users1,
+            "path": "IN_FILE1",
+            "taken": [u["username"] for u in users],
             "count": 0,
-            "remaining": remaining_users1
+            "remaining": max(0, len(users) - TAKE_COUNT)
         })
 
-    # Read all users
-
-
-    # Write remaining back to file
-
     return jsonify({
-        "path": str(IN_FILE),
-        "taken": taken_users,
+        "path": "IN_FILE",
+        "taken": [u["username"] for u in users],
         "count": 1,
-        "remaining": len(remaining_users)
+        "remaining": "unknown"
     })
 def is_within_utc_window(hour_24: int, utc_hour: int, before: int = 2, after: int = 4) -> bool:
     """
@@ -209,6 +250,7 @@ def is_within_utc_window(hour_24: int, utc_hour: int, before: int = 2, after: in
     diff = (hour_24 - utc_hour) % 24
 
     return diff <= after or diff >= (24 - before)
+
 
 
 @app.route("/filter_users_and_write", methods=["POST"])
@@ -239,24 +281,18 @@ def filter_users_and_write():
         print("Counts:", count)
         if not language:
             if count:
-                all_users = read_userids_from_file(IN_FILE)
-                remaining_users = all_users[1:]
-                write_userids_to_file(IN_FILE, remaining_users)
+                delete_username(IN_FILE, userid)
                 continue
-            all_users = read_userids_from_file(IN_FILE1)
-            remaining_users = all_users[1:]
-            write_userids_to_file(IN_FILE1, remaining_users)
+
+            delete_username(IN_FILE1, userid)
             continue
         if not time_text:
             continue
         
-        if count == 0:
-            all_users = read_userids_from_file(IN_FILE1)
-            remaining_users = all_users[1:]
-            write_userids_to_file(IN_FILE1, remaining_users)
-        all_users = read_userids_from_file(IN_FILE)
-        remaining_users = all_users[1:]
-        write_userids_to_file(IN_FILE, remaining_users)
+        if count:
+            delete_username(IN_FILE, userid)
+        else:
+            delete_username(IN_FILE1, userid)
 
         if not image_has_face(img_url):
             print("❌ {} has no face in image, skipping".format(userid))
@@ -280,12 +316,11 @@ def filter_users_and_write():
         if country == "United States":
             append_id(OUT_FILE, userid)
             if count:
-                append_id("OUT_FILE.txt", userid)
+                append_id(IN_FILE1, userid)
         else:
             append_id(OUT_FILE1, userid)
-            append_id("EU_OUT_FILE.txt", userid)
+            append_id(IN_FILE2, userid)
         filtered.append(userid)
-    # write_userids_to_file(OUT_FILE, filtered)
 
     return jsonify({
         "in_file": str(IN_FILE),
@@ -294,25 +329,7 @@ def filter_users_and_write():
         "filtered_userids": filtered
     })
 
-def region_file(region: str) -> str:
-    safe_region = "".join(c for c in region if c.isalnum() or c in ("-", "_"))
-    if not safe_region:
-        safe_region = "default"
-    return os.path.join(DATA_DIR, f"{safe_region}.txt")
 
-
-def load_saved_ids(region: str) -> Set[str]:
-    filename = region_file(region)
-    if not os.path.exists(filename):
-        return set()
-    with open(filename, "r", encoding="utf-8") as f:
-        return set(line.strip() for line in f if line.strip())
-
-
-def append_id(region: str, id_value: str) -> None:
-    filename = region_file(region)
-    with open(filename, "a", encoding="utf-8") as f:
-        f.write( id_value + "\n")
 
 @app.route("/api/save-ids", methods=["POST"])
 def save_ids():
@@ -334,16 +351,23 @@ def save_ids():
     if not isinstance(ids, list):
         return jsonify({"error": "ids must be a list"}), 400
 
-    saved = load_saved_ids(region)
     new_ids: List[str] = []
 
     for raw_id in ids:
         id_value = str(raw_id).strip()
-        if not id_value or id_value in saved:
+        result = (
+            supabase
+            .table(region)
+            .select("username")
+            .eq("username", id_value)
+            .limit(1)
+            .execute()
+        )
+
+        if not id_value or result.data:
             continue
-        saved.add(id_value)
         append_id(region, id_value)
-        append_id("new", id_value)
+        append_id(IN_FILE, id_value)
         new_ids.append(id_value)
         print("➡️ New ID:", id_value)
 
@@ -356,40 +380,64 @@ def save_ids():
         }
     )
 
+@app.get("/api/us")
+def get_pdf():
+    result = (
+        supabase
+        .table("filltered_users")   # change to your table
+        .select("id, username")
+        .order("id")
+        .limit(1)
+        .execute()
+    )
 
-# @app.post("/api/save-image")
-# def save_image():
-#     """
-#     JSON:
-#     {
-#         "id": "user-path-or-id",
-#         "img": "ture"
-#     }
-#     """
-#     payload = request.get_json(silent=True) or {}
-#     id = (payload.get("id") or "").strip()
-#     img = (payload.get("img") or "").strip()
-    
-#     print("➡️ ID:", id)
-#     if not id:
-#         return jsonify({"error": "missing id or img_url"}), 400
-#     saved = load_saved_ids("new")
-#     saved1 = load_saved_ids("US")
-#     if not id or id in saved1:
-#         return jsonify({"status": "ok", "message": "id already saved"}), 200
-#     append_id("US", id)
-#     print("➡️ New ID:", id)
-    
-#     if img == "ture":
-#         append_id("new", id)
-#         print("➡️ New Human ID:", id)
+    if not result.data:
+        return jsonify({"error": "No usernames left"}), 404
 
-#     return jsonify(
-#         {
-#             "status": "ok",
-#             "new_ids": id,
-#         }
-#     )
+    row = result.data[0]
+
+    # Delete the row after taking it
+    (
+        supabase
+        .table("filltered_users")
+        .delete()
+        .eq("id", row["id"])
+        .execute()
+    )
+
+    return jsonify({
+        "url": row["username"]
+    })
+
+@app.get("/api/eu")
+def get_eu():
+    result = (
+        supabase
+        .table("filltered_users_eu")   # change to your table
+        .select("id, username")
+        .order("id")
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        return jsonify({"error": "No usernames left"}), 404
+
+    row = result.data[0]
+
+    # Delete the row after taking it
+    (
+        supabase
+        .table("filltered_users_eu")
+        .delete()
+        .eq("id", row["id"])
+        .execute()
+    )
+
+    return jsonify({
+        "url": row["username"]
+    })
+
 
 
 @app.route("/health", methods=["GET"])
