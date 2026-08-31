@@ -85,7 +85,7 @@ function getRandomDelay(a, b) {
   }
 
   return Math.floor(
-    (Math.random() * (max - min) + min) * 60
+    (Math.random() * (max - min) + min)
   );
 }
 
@@ -645,19 +645,87 @@ async function processUnreadContacts(tabId) {
               }))
   });
   console.log(contacts);
-  
-  for (const contact of contacts) {
-    console.log("username ->", contact);
-    
-    const stage = await getStage(contact.username);
-    console.log(stage);
-    
-    if (stage >= 2)
-        continue;
-      
-      
-      // click this contact
-      await chrome.scripting.executeScript({
+  const [{ result }] = await chrome.scripting.executeScript({
+          target: { tabId },
+          func: () => {
+              const messages = document.querySelectorAll(
+                  '._1t7mz2xk.ce05uz1go.ce05uz1e6.ce05uz8.ce05uz2'
+              );
+              const contents = document.querySelectorAll(`._1t7mz2xk.ax65pu1e.ce05uz1go.ce05uz1e6.ce05uz2.ce05uzd.ce05uz2j.ce05uzo2.ce05uzkl.ce05uzhk`);
+              const blockmessage = document.querySelectorAll(`._1t7mz2xk.ce05uz1gt.ce05uz1eb.ce05uz8.ce05uz2`)
+              let count = 0;
+              console.log(blockmessage.length===2);
+              
+              let block = blockmessage.length === 2;
+              let msg = false;
+              let username = ""           
+              let length = 0;  
+              for (const el of messages) {
+                  if (el.textContent.trim() === "United States") break;
+                  length++;
+                  if (el.textContent.trim() === "Me") {
+                      count++;
+                      msg = false;
+                  } else {
+                    msg = true;
+                    username = el.textContent.trim()
+                  }
+              }
+              console.log(count);
+              
+              let startsWithN = false;
+              if (count > 0) {
+                  const lastMessage = contents[length - 1].textContent.trim();                  
+                  startsWithN = lastMessage.charAt(0).toLowerCase() === "n";
+              }
+               return {
+                  count,
+                  valid: !startsWithN,
+                  block,
+                  msg,
+                  username
+              };
+          }
+      });
+      console.log("executeScript result:", result);
+
+      if (!result) {
+          console.log("No result returned from injected script");
+          return;
+      }
+      console.log(result.block, result.count, result.valid);
+      if(!result.valid || result.count>3 || result.block){
+        await setStage(result.username, 3);
+        await sleep(3000)
+      }else if(result.msg){
+        switch (result.count) {
+          case 1:
+            await input_data2(tabId);
+            await setStage(result.username, 1);
+            break;
+            case 2:
+              await input_data4(
+                tabId,
+                "Here is my proposal.",
+                chrome.runtime.getURL("files/Requirement.png"),
+                "Requirement.png"
+              );
+            await setStage(result.username, 2);
+            break;
+            }
+          }
+      for (const contact of contacts) {
+              console.log("username ->", contact);
+              
+              const stage = await getStage(contact.username);
+              console.log(stage);
+              
+              if (stage >= 2)
+                continue;
+              
+              
+              // click this contact
+              await chrome.scripting.executeScript({
         target: { tabId },
         args: [contact.username],
         func: async (username) => {
@@ -693,63 +761,68 @@ async function processUnreadContacts(tabId) {
               const messages = document.querySelectorAll(
                   '._1t7mz2xk.ce05uz1go.ce05uz1e6.ce05uz8.ce05uz2'
               );
-
-              let count = 0;
-              console.log("---", messages.length);
+              const blockmessage = document.querySelectorAll(`._1t7mz2xk.ce05uz1gt.ce05uz1eb.ce05uz8.ce05uz2`)
+              const contents = document.querySelectorAll(`._1t7mz2xk.ax65pu1e.ce05uz1go.ce05uz1e6.ce05uz2.ce05uzd.ce05uz2j.ce05uzo2.ce05uzkl.ce05uzhk`);
               
+              let count = 0;
+              let length = 0;
+              let block = blockmessage.length === 2;
+              
+             let msg = false;
               for (const el of messages) {
+                  if (el.textContent.trim() === "United States") break;
+                  length++;
                   if (el.textContent.trim() === "Me") {
                       count++;
+                      msg = false;
+                  } else {
+                    msg = true;
                   }
               }
+              console.log(count);
+              
               let startsWithN = false;
-              if (messages.length > 0) {
-                  const lastMessage = messages[messages.length - 1].textContent.trim();
+              if (count > 0) {
+                  const lastMessage = contents[length - 1].textContent.trim();                  
                   startsWithN = lastMessage.charAt(0).toLowerCase() === "n";
               }
                return {
                   count,
-                  valid: !startsWithN
+                  valid: !startsWithN,
+                  block,
+                  msg,
               };
           }
       });
-      
-      console.log(!result.valid);
-      if(!result.valid || result.count>3){
-        if (result.count>3) await setStage(contact.username, 3);
+      console.log("executeScript result:", result);
+
+      if (!result) {
+          console.log("No result returned from injected script");
+          return;
+      }
+      if(!result.valid || result.count>3 || result.block){
+        await setStage(contact.username, 3);
         await sleep(3000)
         continue;
       }
       // await waitUntilConversationLoaded(tabId);
-    switch (result.count) {
-        case 1:
+    else if(result.msg){
+        switch (result.count) {
+          case 1:
             await input_data2(tabId);
-            // await sleep(5000);
-            // await input_data3(tabId);
-            // await sendMessage(tabId, "Thanks for reaching out.");
-            // await sleep(5000);
-            // await sendMessage(tabId, "I've a good business with you to efficiently plan a project together.");
-            await setStage(contact.username, 1);
+            await setStage(result.username, 1);
             break;
-        case 2:
-            await input_data4(
+            case 2:
+              await input_data4(
                 tabId,
                 "Here is my proposal.",
                 chrome.runtime.getURL("files/Requirement.png"),
                 "Requirement.png"
-            );
-            await setStage(contact.username, 2);
+              );
+            await setStage(result.username, 2);
             break;
-        case 3:
-            await input_data4(
-                tabId,
-                "Here is my proposal.",
-                chrome.runtime.getURL("files/Requirement.png"),
-                "Requirement.png"
-            );
-            await setStage(contact.username, 2);
-            break;
-    }
+            }
+          }
     await sleep(3000)
   }
 }
@@ -758,24 +831,43 @@ async function sendToUser(data) {
   console.log(data);
   let delay;
   // Open the Fiverr tab
-  const tabId = await openOrReuseTab(`https://pro.fiverr.com/inbox/${data.url}`);
+  let tabId;
+  let { workerTabId } = await chrome.storage.local.get("workerTabId");
+  console.log(workerTabId);
+  
+  let randomDely;
+  if (data.url != "" && data.url !== undefined )
+  {
 
-  if (!tabId) return;
+    tabId = await openOrReuseTab(`https://pro.fiverr.com/inbox/${data.url}`);
+    
+    if (!tabId) return;
+    console.log(data.url);
+    
+    await waitForTabLoaded(tabId);
+    await sleep(10000);  // Allow time for the Fiverr page to fully load
+    console.log("Tab loaded");
+    await input_data1(tabId);
+    await sleep(5000);
+    console.log("tabid===>", tabId);
+    
+    for(let i = 0; i <= 200; i++){
+      await processUnreadContacts(tabId);
+      randomDely = getRandomDelay(2, 3);
+      await sleep(randomDely * 1000);
+    }
 
-  await waitForTabLoaded(tabId);
-  await sleep(10000);  // Allow time for the Fiverr page to fully load
-  console.log("Tab loaded");
-
-  await input_data1(tabId);
-  await sleep(5000);
-  await processUnreadContacts(tabId);
-
-  let randomDely = getRandomDelay(5 / 1, 10 / 1);
+  }else{
+    for(let i = 0; i <= 50; i++){
+      await processUnreadContacts(workerTabId);
+      randomDely = getRandomDelay(2, 3);
+      await sleep(randomDely * 1000);
+    }
+  }
   
   chrome.alarms.create(ALARM_NAME, {
-      delayInMinutes: (randomDely / 60)
-  });
-
+      delayInMinutes: 1
+  }); 
 }
 
 
